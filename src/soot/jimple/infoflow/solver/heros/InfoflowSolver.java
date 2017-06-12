@@ -49,13 +49,12 @@ public class InfoflowSolver extends PathTrackingIFDSSolver<Unit, Abstraction, So
 	
 	public InfoflowSolver(AbstractInfoflowProblem problem, CountingThreadPoolExecutor executor) {
 		super(problem);
-		this.executor = executor;
 		problem.setSolver(this);		
 	}
 	
 	@Override
 	protected CountingThreadPoolExecutor getExecutor() {
-		return executor;
+		return null;
 	}
 
 	public boolean processEdge(PathEdge<Unit, Abstraction> edge){
@@ -73,51 +72,8 @@ public class InfoflowSolver extends PathTrackingIFDSSolver<Unit, Abstraction, So
 	@Override
 	public void injectContext(IInfoflowSolver otherSolver, SootMethod callee, Abstraction d3,
 			Unit callSite, Abstraction d2, Abstraction d1) {
-		if (!(otherSolver instanceof InfoflowSolver))
-			throw new RuntimeException("Other solver must be of same type");
-		
-		synchronized (incoming) {
-			for (Unit sP : icfg.getStartPointsOf(callee))
-				addIncoming(sP, d3, callSite, d2);
-		}
-		
-		// First, get a list of the other solver's jump functions.
-		// Then release the lock on otherSolver.jumpFn before doing
-		// anything that locks our own jumpFn.
-		final Set<Abstraction> otherAbstractions;
-		final InfoflowSolver solver = (InfoflowSolver) otherSolver;
-		synchronized (solver.jumpFn) {
-			otherAbstractions = new HashSet<Abstraction>
-					(solver.jumpFn.reverseLookup(callSite, d2).keySet());
-		}
-		for (Abstraction dx1: otherAbstractions)
-			if (!dx1.getAccessPath().isEmpty() && !dx1.getAccessPath().isStaticFieldRef())
-				processEdge(new PathEdge<Unit, Abstraction>(d1, callSite, d2));
 	}
 	
-	@Override
-	protected Set<Abstraction> computeReturnFlowFunction(
-			FlowFunction<Abstraction> retFunction,
-			Abstraction d1,
-			Abstraction d2,
-			Unit callSite,
-			Set<Abstraction> callerSideDs) {
-		if (retFunction instanceof SolverReturnFlowFunction) {
-			// Get the d1s at the start points of the caller
-			Set<Abstraction> d1s = new HashSet<Abstraction>(callerSideDs.size() * 5);
-			for (Abstraction d4 : callerSideDs)
-				if (d4 == zeroValue)
-					d1s.add(d4);
-				else
-					synchronized (jumpFn) {
-						d1s.addAll(jumpFn.reverseLookup(callSite, d4).keySet());
-					}
-			
-			return ((SolverReturnFlowFunction) retFunction).computeTargets(d2, d1, d1s);
-		}
-		else
-			return retFunction.computeTargets(d2);
-	}
 
 	@Override
 	protected Set<Abstraction> computeNormalFlowFunction
@@ -203,18 +159,6 @@ public class InfoflowSolver extends PathTrackingIFDSSolver<Unit, Abstraction, So
 	protected void processExit(PathEdge<Unit, Abstraction> edge) {
 		super.processExit(edge);
 		
-		if (followReturnsPastSeeds && followReturnsPastSeedsHandler != null) {
-			final Abstraction d1 = edge.factAtSource();
-			final Unit u = edge.getTarget();
-			final Abstraction d2 = edge.factAtTarget();
-			
-			final SootMethod methodThatNeedsSummary = icfg.getMethodOf(u);
-			for (Unit sP : icfg.getStartPointsOf(methodThatNeedsSummary)) {
-				final Map<Unit, Set<Abstraction>> inc = incoming(d1, sP);				
-				if (inc == null || inc.isEmpty())
-					followReturnsPastSeedsHandler.handleFollowReturnsPastSeeds(d1, u, d2);
-			}
-		}
 	}
 	
 	@Override

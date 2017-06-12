@@ -41,7 +41,7 @@ public class InfoflowSolver extends IFDSSolver<Unit, Abstraction, SootMethod, Bi
 	private IFollowReturnsPastSeedsHandler followReturnsPastSeedsHandler = null;
 	
 	public InfoflowSolver(AbstractInfoflowProblem problem, CountingThreadPoolExecutor executor) {
-		super(problem);
+		super(null);
 		this.executor = executor;
 		problem.setSolver(this);		
 	}

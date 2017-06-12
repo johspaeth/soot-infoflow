@@ -243,86 +243,6 @@ public class IFDSSolver<N,D extends FastSolverLinkedNode<D, N>,M,I extends BiDiI
 	 * @param edge an edge whose target node resembles a method call
 	 */
 	private void processCall(PathEdge<N,D> edge) {
-		final D d1 = edge.factAtSource();
-		final N n = edge.getTarget(); // a call node; line 14...
-
-		final D d2 = edge.factAtTarget();
-		assert d2 != null;
-		Collection<N> returnSiteNs = icfg.getReturnSitesOfCallAt(n);
-		
-		//for each possible callee
-		Collection<M> callees = icfg.getCalleesOfCallAt(n);
-		for(M sCalledProcN: callees) { //still line 14
-			//compute the call-flow function
-			FlowFunction<D> function = flowFunctions.getCallFlowFunction(n, sCalledProcN);
-			Set<D> res = computeCallFlowFunction(function, d1, d2);
-			
-			Collection<N> startPointsOf = icfg.getStartPointsOf(sCalledProcN);
-			//for each result node of the call-flow function
-			for(D d3: res) {
-				if (memoryManager != null)
-					d3 = memoryManager.handleGeneratedMemoryObject(d2, d3);
-				if (d3 == null)
-					continue;
-				
-				//for each callee's start point(s)
-				for(N sP: startPointsOf) {
-					//create initial self-loop
-					propagate(d3, sP, d3, n, false, true); //line 15
-				}
-				
-				//register the fact that <sp,d3> has an incoming edge from <n,d2>
-				//line 15.1 of Naeem/Lhotak/Rodriguez
-				if (!addIncoming(sCalledProcN,d3,n,d1,d2))
-					continue;
-				
-				//line 15.2
-				Set<Pair<N, D>> endSumm = endSummary(sCalledProcN, d3);
-				
-				//still line 15.2 of Naeem/Lhotak/Rodriguez
-				//for each already-queried exit value <eP,d4> reachable from <sP,d3>,
-				//create new caller-side jump functions to the return sites
-				//because we have observed a potentially new incoming edge into <sP,d3>
-				if (endSumm != null && !endSumm.isEmpty())
-					for(Pair<N, D> entry: endSumm) {
-						N eP = entry.getO1();
-						D d4 = entry.getO2();
-						//for each return site
-						for(N retSiteN: returnSiteNs) {
-							//compute return-flow function
-							FlowFunction<D> retFunction = flowFunctions.getReturnFlowFunction(n, sCalledProcN, eP, retSiteN);
-							//for each target value of the function
-							for(D d5: computeReturnFlowFunction(retFunction, d3, d4, n, Collections.singleton(d1))) {
-								if (memoryManager != null)
-									d5 = memoryManager.handleGeneratedMemoryObject(d4, d5);
-								
-								// If we have not changed anything in the callee, we do not need the facts
-								// from there. Even if we change something: If we don't need the concrete
-								// path, we can skip the callee in the predecessor chain
-								D d5p = d5;
-								if (d5.equals(d2))
-									d5p = d2;
-								else if (setJumpPredecessors && d5p != d2) {
-									d5p = d5p.clone();
-									d5p.setPredecessor(d2);
-								}
-								propagate(d1, retSiteN, d5p, n, false, true);
-							}
-						}
-					}
-			}
-		}
-		//line 17-19 of Naeem/Lhotak/Rodriguez		
-		//process intra-procedural flows along call-to-return flow functions
-		for (N returnSiteN : returnSiteNs) {
-			FlowFunction<D> callToReturnFlowFunction = flowFunctions.getCallToReturnFlowFunction(n, returnSiteN);
-			for(D d3: computeCallToReturnFlowFunction(callToReturnFlowFunction, d1, d2)) {
-				if (memoryManager != null)
-					d3 = memoryManager.handleGeneratedMemoryObject(d2, d3);
-				if (d3 != null)
-					propagate(d1, returnSiteN, d3, n, false);
-			}
-		}
 	}
 	
 	/**
@@ -361,85 +281,6 @@ public class IFDSSolver<N,D extends FastSolverLinkedNode<D, N>,M,I extends BiDiI
 	 * @param edge an edge whose target node resembles a method exits
 	 */
 	protected void processExit(PathEdge<N,D> edge) {
-		final N n = edge.getTarget(); // an exit node; line 21...
-		M methodThatNeedsSummary = icfg.getMethodOf(n);
-		
-		final D d1 = edge.factAtSource();
-		final D d2 = edge.factAtTarget();
-		
-		//for each of the method's start points, determine incoming calls
-		
-		//line 21.1 of Naeem/Lhotak/Rodriguez
-		//register end-summary
-		if (!addEndSummary(methodThatNeedsSummary, d1, n, d2))
-			return;
-		Map<N,Map<D, D>> inc = incoming(d1, methodThatNeedsSummary);
-		
-		//for each incoming call edge already processed
-		//(see processCall(..))
-		if (inc != null)
-			for (Entry<N,Map<D, D>> entry: inc.entrySet()) {
-				//line 22
-				N c = entry.getKey();
-				Set<D> callerSideDs = entry.getValue().keySet();
-				//for each return site
-				for(N retSiteC: icfg.getReturnSitesOfCallAt(c)) {
-					//compute return-flow function
-					FlowFunction<D> retFunction = flowFunctions.getReturnFlowFunction(c, methodThatNeedsSummary,n,retSiteC);
-					Set<D> targets = computeReturnFlowFunction(retFunction, d1, d2, c, callerSideDs);
-					//for each incoming-call value
-					for(Entry<D, D> d1d2entry : entry.getValue().entrySet()) {
-						final D d4 = d1d2entry.getKey();
-						final D predVal = d1d2entry.getValue();
-						
-						for(D d5: targets) {
-							if (memoryManager != null)
-								d5 = memoryManager.handleGeneratedMemoryObject(d2, d5);
-							if (d5 == null)
-								continue;
-							
-							// If we have not changed anything in the callee, we do not need the facts
-							// from there. Even if we change something: If we don't need the concrete
-							// path, we can skip the callee in the predecessor chain
-							D d5p = d5;
-							if (d5.equals(predVal))
-								d5p = predVal;
-							else if (setJumpPredecessors && d5p != predVal) {
-								d5p = d5p.clone();
-								d5p.setPredecessor(predVal);
-							}
-							propagate(d4, retSiteC, d5p, c, false, true);
-						}
-					}
-				}
-			}
-		
-		//handling for unbalanced problems where we return out of a method with a fact for which we have no incoming flow
-		//note: we propagate that way only values that originate from ZERO, as conditionally generated values should only
-		//be propagated into callers that have an incoming edge for this condition
-		if(followReturnsPastSeeds && d1 == zeroValue && (inc == null || inc.isEmpty())) {			
-			Collection<N> callers = icfg.getCallersOf(methodThatNeedsSummary);
-			for(N c: callers) {
-				M callerMethod = icfg.getMethodOf(c);
-				for(N retSiteC: icfg.getReturnSitesOfCallAt(c)) {					
-					FlowFunction<D> retFunction = flowFunctions.getReturnFlowFunction(c, methodThatNeedsSummary,n,retSiteC);
-					Set<D> targets = computeReturnFlowFunction(retFunction, d1, d2, c, Collections.singleton(zeroValue));
-					for(D d5: targets) {
-						if (memoryManager != null)
-							d5 = memoryManager.handleGeneratedMemoryObject(d2, d5);
-						if (d5 != null)
-							propagate(zeroValue, retSiteC, d5, c, true, callerMethod == methodThatNeedsSummary);
-					}
-				}
-			}
-			//in cases where there are no callers, the return statement would normally not be processed at all;
-			//this might be undesirable if the flow function has a side effect such as registering a taint;
-			//instead we thus call the return flow function will a null caller
-			if(callers.isEmpty()) {
-				FlowFunction<D> retFunction = flowFunctions.getReturnFlowFunction(null, methodThatNeedsSummary,n,null);
-				retFunction.computeTargets(d2);
-			}
-		}
 	}
 	
 	/**
@@ -467,16 +308,6 @@ public class IFDSSolver<N,D extends FastSolverLinkedNode<D, N>,M,I extends BiDiI
 		final N n = edge.getTarget(); 
 		final D d2 = edge.factAtTarget();
 		
-		for (N m : icfg.getSuccsOf(n)) {
-			FlowFunction<D> flowFunction = flowFunctions.getNormalFlowFunction(n,m);
-			Set<D> res = computeNormalFlowFunction(flowFunction, d1, d2);
-			for (D d3 : res) {
-				if (memoryManager != null && d2 != d3)
-					d3 = memoryManager.handleGeneratedMemoryObject(d2, d3);
-				if (d3 != null)
-					propagate(d1, m, d3, null, false);
-			}
-		}
 	}
 	
 	/**

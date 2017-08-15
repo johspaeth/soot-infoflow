@@ -405,7 +405,7 @@ public class AndroidEntryPointCreator extends BaseEntryPointCreator implements I
 		if (DEBUG || Options.v().validate())
 			mainMethod.getActiveBody().validate();
 		
-		logger.info("Generated main method:\n{}", body);
+//		logger.info("Generated main method:\n{}", body);
 		return mainMethod;
 	}
 	

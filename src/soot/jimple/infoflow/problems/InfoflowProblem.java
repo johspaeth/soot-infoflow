@@ -10,55 +10,14 @@
  ******************************************************************************/
 package soot.jimple.infoflow.problems;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-
-import heros.FlowFunction;
 import heros.FlowFunctions;
-import heros.flowfunc.KillAll;
-import heros.solver.IPropagationController;
-import soot.ArrayType;
-import soot.BooleanType;
-import soot.Local;
-import soot.NullType;
-import soot.PrimType;
-import soot.RefType;
-import soot.SootField;
 import soot.SootMethod;
-import soot.Type;
 import soot.Unit;
-import soot.Value;
-import soot.jimple.ArrayRef;
-import soot.jimple.AssignStmt;
-import soot.jimple.CastExpr;
-import soot.jimple.DefinitionStmt;
-import soot.jimple.FieldRef;
-import soot.jimple.InstanceFieldRef;
-import soot.jimple.InstanceInvokeExpr;
-import soot.jimple.InstanceOfExpr;
-import soot.jimple.InvokeExpr;
-import soot.jimple.NewArrayExpr;
-import soot.jimple.ReturnStmt;
-import soot.jimple.StaticFieldRef;
-import soot.jimple.Stmt;
 import soot.jimple.infoflow.InfoflowManager;
 import soot.jimple.infoflow.aliasing.Aliasing;
 import soot.jimple.infoflow.aliasing.IAliasingStrategy;
 import soot.jimple.infoflow.data.Abstraction;
-import soot.jimple.infoflow.data.AccessPath;
-import soot.jimple.infoflow.data.AccessPath.ArrayTaintType;
-import soot.jimple.infoflow.data.AccessPathFactory;
-import soot.jimple.infoflow.handlers.TaintPropagationHandler.FlowFunctionType;
 import soot.jimple.infoflow.problems.rules.PropagationRuleManager;
-import soot.jimple.infoflow.solver.functions.SolverCallFlowFunction;
-import soot.jimple.infoflow.solver.functions.SolverCallToReturnFlowFunction;
-import soot.jimple.infoflow.solver.functions.SolverNormalFlowFunction;
-import soot.jimple.infoflow.solver.functions.SolverReturnFlowFunction;
-import soot.jimple.infoflow.util.BaseSelector;
-import soot.jimple.infoflow.util.ByReferenceBoolean;
-import soot.jimple.infoflow.util.TypeUtils;
 
 public class InfoflowProblem extends AbstractInfoflowProblem {
 	
@@ -95,13 +54,6 @@ public class InfoflowProblem extends AbstractInfoflowProblem {
 	 */
     public TaintPropagationResults getResults(){
    		return this.results;
-	}
-
-
-	@Override
-	public IPropagationController<Unit, Abstraction> propagationController() {
-		// TODO Auto-generated method stub
-		return null;
 	}
 
 
